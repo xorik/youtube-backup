@@ -1,0 +1,26 @@
+{
+  "name": "xorik/yt-upload",
+  "description": "Download from twitch, upload to youtube",
+  "autoload": {
+    "psr-4": {
+      "xorik\\YtUpload\\": "src/"
+    }
+  },
+  "authors": [
+    {
+      "name": "xorik",
+      "email": "xorik@users.noreply.github.com"
+    }
+  ],
+  "require": {
+    "google/apiclient": "^2.0",
+    "symfony/dotenv": "^6.2",
+    "symfony/dependency-injection": "^6.2",
+    "symfony/console": "^6.2",
+    "symfony/config": "^6.2",
+    "symfony/cache": "^6.2"
+  },
+  "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.13"
+  }
+}
