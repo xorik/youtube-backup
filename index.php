@@ -11,6 +11,7 @@ use Symfony\Component\DependencyInjection\Loader\PhpFileLoader;
 use Symfony\Component\Dotenv\Dotenv;
 use xorik\YtUpload\Command\UploadToYoutubeCommand;
 use xorik\YtUpload\Command\YoutubeAuthCommand;
+use xorik\YtUpload\Command\YoutubeQueueCommand;
 
 require __DIR__ . '/vendor/autoload.php';
 
@@ -32,6 +33,7 @@ try {
     $commandLoader = new ContainerCommandLoader($containerBuilder, [
         'yt:upload' => UploadToYoutubeCommand::class,
         'yt:auth' => YoutubeAuthCommand::class,
+        'yt:queue' => YoutubeQueueCommand::class,
     ]);
 
     $application->setCommandLoader($commandLoader);

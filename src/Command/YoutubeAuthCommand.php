@@ -29,7 +29,7 @@ class YoutubeAuthCommand extends Command
         $io->writeln('Click on the link, authorize the app and paste here URL after reditect (starts with http://localhost:8000)');
         $io->writeln($this->youtubeApi->getAuthUrl());
 
-        $url = $io->ask('Full URL: ');
+        $url = $io->ask('Full URL');
 
         $query = parse_url($url, \PHP_URL_QUERY);
         parse_str($query, $params);

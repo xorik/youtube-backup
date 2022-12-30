@@ -63,7 +63,7 @@ class YoutubeApi
         $youtube = new YouTube($this->client);
 
         $snippet = new VideoSnippet();
-        $snippet->setChannelId((string) $details->categoryId);
+        $snippet->setChannelId((string) $details->category->value);
         $snippet->setDescription($details->description);
         $snippet->setTitle($details->title);
         $snippet->setTags($details->tags);

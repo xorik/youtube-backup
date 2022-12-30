@@ -10,7 +10,7 @@ class VideoDetails
         readonly public string $title,
         readonly public string $description,
         readonly public array $tags,
-        readonly public int $categoryId,
+        readonly public YoutubeCategory $category,
         readonly public PrivacyStatus $privacyStatus,
     ) {
     }

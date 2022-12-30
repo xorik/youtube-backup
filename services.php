@@ -9,8 +9,10 @@ use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Serializer\Encoder\JsonEncoder;
 use Symfony\Component\Serializer\Normalizer\BackedEnumNormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
+use Symfony\Component\Serializer\Normalizer\UidNormalizer;
 use Symfony\Component\Serializer\Serializer;
 use xorik\YtUpload\Normalizer\RequestNormalizer;
+use xorik\YtUpload\Service\QueueManager;
 use xorik\YtUpload\Service\YoutubeApi;
 
 return static function (ContainerConfigurator $container) {
@@ -23,7 +25,7 @@ return static function (ContainerConfigurator $container) {
     $services
         ->set(CacheItemPoolInterface::class, FilesystemAdapter::class)
         ->args([
-            '$directory' => __DIR__ . '/cache',
+            '$directory' => __DIR__ . '/var/cache',
         ])
     ;
 
@@ -31,6 +33,7 @@ return static function (ContainerConfigurator $container) {
         ->set(Serializer::class)
         ->args([
             [
+                inline_service(UidNormalizer::class),
                 inline_service(RequestNormalizer::class),
                 inline_service(BackedEnumNormalizer::class),
                 inline_service(ObjectNormalizer::class),
@@ -45,6 +48,13 @@ return static function (ContainerConfigurator $container) {
             '$clientId' => env('YT_CLIENT_ID'),
             '$clientSecret' => env('YT_CLIENT_SECRET'),
             '$redirectUrl' => env('YT_REDIRECT_URL'),
+        ])
+    ;
+
+    $services
+        ->set(QueueManager::class)
+        ->args([
+            '$queueDirectory' => __DIR__ . '/var/queue',
         ])
     ;
 };
