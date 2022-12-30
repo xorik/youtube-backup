@@ -11,6 +11,7 @@ use Symfony\Component\Serializer\Normalizer\BackedEnumNormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Normalizer\UidNormalizer;
 use Symfony\Component\Serializer\Serializer;
+use xorik\YtUpload\Command\VideoDownloadCommand;
 use xorik\YtUpload\Normalizer\RequestNormalizer;
 use xorik\YtUpload\Service\QueueManager;
 use xorik\YtUpload\Service\YoutubeApi;
@@ -56,5 +57,12 @@ return static function (ContainerConfigurator $container) {
         ->args([
             '$queueDirectory' => __DIR__ . '/var/queue',
         ])
+    ;
+
+    $services
+        ->set(VideoDownloadCommand::class)
+        ->args([
+            '$cachePath' => __DIR__ . '/var/cache',
+        ])->public()
     ;
 };

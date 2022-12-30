@@ -24,10 +24,7 @@ class QueueManager
         ?VideoRange $range,
     ): void {
         $video = new Video(Uuid::v6(), $sourceUrl, $videoDetails, $range);
-        $path = sprintf('%s/%s.json', $this->queueDirectory, $video->id);
-
-        $data = $this->serializer->serialize($video, 'json');
-        file_put_contents($path, $data);
+        $this->save($video);
     }
 
     /**
@@ -49,5 +46,24 @@ class QueueManager
         }
 
         return $list;
+    }
+
+    public function get(Uuid $id): Video
+    {
+        $path = sprintf('%s/%s.json', $this->queueDirectory, $id);
+
+        if (!file_exists($path)) {
+            throw new \RuntimeException('File does not exist: ' . $path);
+        }
+
+        return $this->serializer->deserialize(file_get_contents($path), Video::class, 'json');
+    }
+
+    public function save(Video $video): void
+    {
+        $path = sprintf('%s/%s.json', $this->queueDirectory, $video->id);
+
+        $data = $this->serializer->serialize($video, 'json');
+        file_put_contents($path, $data);
     }
 }

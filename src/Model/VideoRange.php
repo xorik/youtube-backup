@@ -11,4 +11,9 @@ class VideoRange
         readonly public VideoTimestamp $end,
     ) {
     }
+
+    public function __toString(): string
+    {
+        return $this->start->timestamp . '-' . $this->end->timestamp;
+    }
 }

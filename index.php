@@ -10,6 +10,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\PhpFileLoader;
 use Symfony\Component\Dotenv\Dotenv;
 use xorik\YtUpload\Command\UploadToYoutubeCommand;
+use xorik\YtUpload\Command\VideoDownloadCommand;
 use xorik\YtUpload\Command\YoutubeAuthCommand;
 use xorik\YtUpload\Command\YoutubeQueueCommand;
 
@@ -34,6 +35,7 @@ try {
         'yt:upload' => UploadToYoutubeCommand::class,
         'yt:auth' => YoutubeAuthCommand::class,
         'yt:queue' => YoutubeQueueCommand::class,
+        'yt:download' => VideoDownloadCommand::class,
     ]);
 
     $application->setCommandLoader($commandLoader);

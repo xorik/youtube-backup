@@ -20,4 +20,28 @@ class Video
         readonly public ?string $errorDetails = null,
     ) {
     }
+
+    public function download(string $downloadedPath): self
+    {
+        return new self(
+            $this->id,
+            $this->sourceUrl,
+            $this->videoDetails,
+            $this->range,
+            VideoState::DOWNLOADING,
+            $downloadedPath,
+        );
+    }
+
+    public function downloaded(): self
+    {
+        return new self(
+            $this->id,
+            $this->sourceUrl,
+            $this->videoDetails,
+            $this->range,
+            VideoState::DOWNLOADED,
+            $this->downloadedPath,
+        );
+    }
 }
