@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace xorik\YtUpload\Command;
 
-use GuzzleHttp\Psr7\Request;
-use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Serializer\Serializer;
-use xorik\YtUpload\Model\PrivacyStatus;
-use xorik\YtUpload\Model\VideoDetails;
+use Symfony\Component\Uid\Uuid;
+use xorik\YtUpload\Model\UploadState;
+use xorik\YtUpload\Model\VideoState;
+use xorik\YtUpload\Service\QueueManager;
 use xorik\YtUpload\Service\TokenStorage;
 use xorik\YtUpload\Service\YoutubeApi;
 
@@ -23,60 +22,40 @@ class UploadToYoutubeCommand extends Command
     public function __construct(
         private YoutubeApi $youtubeApi,
         private TokenStorage $tokenStorage,
-        private Serializer $serializer,
-        private CacheItemPoolInterface $cache,
+        private QueueManager $queueManager,
     ) {
         parent::__construct();
+
+        $this->addArgument('id', InputArgument::REQUIRED);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io = new SymfonyStyle($input, $output);
+        $video = $this->queueManager->get(Uuid::fromString($input->getArgument('id')));
+
+        if ($video->state !== VideoState::DOWNLOADED) {
+            throw new \RuntimeException(sprintf('Incorrect status for video %s: %s', $video->id, $video->state->value));
+        }
 
         $token = $this->tokenStorage->getToken();
 
-        $item = $this->cache->getItem('progress');
-        if ($item->isHit()) {
-            $request = $this->serializer->denormalize($item->get()['request'], Request::class);
-            $requestAsArray = $item->get()['request'];
-            $resumeUrl = $item->get()['url'];
+        $request = $this->youtubeApi->insertVideo($token, $video->videoDetails);
 
-            $io->info(sprintf('Resuming from url: %s', $resumeUrl));
-        } else {
-            $details = new VideoDetails(
-                'test title',
-                'test descr',
-                ['first', 'second'],
-                20,
-                PrivacyStatus::PRIVATE,
-            );
-
-            $request = $this->youtubeApi->insertVideo(
-                $token,
-                $details,
-            );
-
-            $requestAsArray = $this->serializer->normalize($request);
-        }
-
-        $callback = function (int $progress, int $size, string $url) use ($io, $item, $requestAsArray) {
-            $io->writeln(sprintf('%d%% ready', $progress / $size * 100));
-            $item->set([
-                'request' => $requestAsArray,
-                'url' => $url,
-            ]);
-            $this->cache->save($item);
+        $callback = function (int $progress, int $size, string $resumeUrl) use ($video, $request): void {
+            $video = $video->uploading(new UploadState($request, $resumeUrl));
+            $this->queueManager->save($video);
         };
 
-        $this->youtubeApi->uploadVideo(
+        $videoId = $this->youtubeApi->uploadVideo(
             $token,
-            '/tmp/test-upload.mp4',
+            $video->downloadedPath,
             $request,
             $callback,
-            $resumeUrl ?? null,
+//            $resumeUrl ?? null,
         );
 
-        $this->cache->deleteItem('progress');
+        unlink($video->downloadedPath);
+        $this->queueManager->save($video->uploaded($videoId));
 
         return Command::SUCCESS;
     }

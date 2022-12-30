@@ -15,8 +15,8 @@ class Video
         readonly public ?VideoRange $range,
         readonly public VideoState $state = VideoState::QUEUED,
         readonly public ?string $downloadedPath = null,
-        readonly public ?string $uploadedUrl = null,
         readonly public ?UploadState $uploadState = null,
+        readonly public ?string $videoId = null,
         readonly public ?string $errorDetails = null,
     ) {
     }
@@ -42,6 +42,33 @@ class Video
             $this->range,
             VideoState::DOWNLOADED,
             $this->downloadedPath,
+        );
+    }
+
+    public function uploading(UploadState $uploadState): self
+    {
+        return new self(
+            $this->id,
+            $this->sourceUrl,
+            $this->videoDetails,
+            $this->range,
+            VideoState::UPLOADING,
+            $this->downloadedPath,
+            $uploadState,
+        );
+    }
+
+    public function uploaded(string $videoId): self
+    {
+        return new self(
+            $this->id,
+            $this->sourceUrl,
+            $this->videoDetails,
+            $this->range,
+            VideoState::UPLOADED,
+            null,
+            null,
+            $videoId,
         );
     }
 }

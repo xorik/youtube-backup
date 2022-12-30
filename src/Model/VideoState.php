@@ -10,7 +10,7 @@ enum VideoState: string
     case DOWNLOADING = 'downloading';
     case DOWNLOADED = 'downloaded';
     case UPLOADING = 'uploading';
-    case PROCESSED = 'uploaded';
+    case UPLOADED = 'uploaded';
     case PUBLISHED = 'published';
     case ERROR = 'error';
 }

@@ -11,6 +11,7 @@ use Google\Service\YouTube\Video;
 use Google\Service\YouTube\VideoSnippet;
 use Google\Service\YouTube\VideoStatus;
 use Psr\Http\Message\RequestInterface;
+use xorik\YtUpload\Model\PrivacyStatus;
 use xorik\YtUpload\Model\VideoDetails;
 
 class YoutubeApi
@@ -68,8 +69,9 @@ class YoutubeApi
         $snippet->setTitle($details->title);
         $snippet->setTags($details->tags);
 
+        // Set private until processing is over
         $status = new VideoStatus();
-        $status->setPrivacyStatus($details->privacyStatus->value);
+        $status->setPrivacyStatus(PrivacyStatus::PRIVATE->value);
 
         $video = new Video();
         $video->setSnippet($snippet);
@@ -79,7 +81,10 @@ class YoutubeApi
 
         $this->client->setDefer(true);
 
-        return $youtube->videos->insert('status,snippet', $video);
+        /** @var RequestInterface $request */
+        $request = $youtube->videos->insert('status,snippet', $video);
+
+        return $request;
     }
 
     public function uploadVideo(
@@ -88,7 +93,7 @@ class YoutubeApi
         RequestInterface $insertRequest,
         callable $progressCallback,
         ?string $resumeUrl = null,
-    ): void {
+    ): string {
         $this->client->setAccessToken($token);
 
         $media = new MediaFileUpload(
@@ -102,6 +107,7 @@ class YoutubeApi
         $filesize = filesize($path);
         $media->setFileSize($filesize);
 
+        /** @var Video|false $status */
         $status = false;
         $handle = fopen($path, 'r');
 
@@ -116,5 +122,7 @@ class YoutubeApi
             $progressCallback($media->getProgress(), $filesize, $media->getResumeUri());
         }
         fclose($handle);
+
+        return $status->getId();
     }
 }
