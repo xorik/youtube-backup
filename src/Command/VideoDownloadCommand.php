@@ -28,9 +28,12 @@ class VideoDownloadCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $video = $this->queueManager->get(Uuid::fromString($input->getArgument('id')));
+        $video = $this->queueManager->getWithLock(Uuid::fromString($input->getArgument('id')));
 
-        if ($video->state !== VideoState::QUEUED) {
+        // Check if status is queued/downloading or file was downloaded and removed
+        $correctStatus = \in_array($video->state, [VideoState::QUEUED, VideoState::DOWNLOADING], true);
+        $fileMissing = $video->state === VideoState::DOWNLOADED && !is_file($video->downloadedPath);
+        if (!$correctStatus && !$fileMissing) {
             throw new \RuntimeException(sprintf('Incorrect status for video %s: %s', $video->id, $video->state->value));
         }
 
@@ -53,7 +56,7 @@ class VideoDownloadCommand extends Command
             file_put_contents($logPath, $buffer, \FILE_APPEND);
         });
 
-        $this->queueManager->save($video->downloaded());
+        $this->queueManager->saveAndUnlock($video->downloaded());
 
         return Command::SUCCESS;
     }

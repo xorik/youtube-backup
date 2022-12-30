@@ -6,6 +6,8 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\FlockStore;
 use Symfony\Component\Serializer\Encoder\JsonEncoder;
 use Symfony\Component\Serializer\Normalizer\BackedEnumNormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
@@ -23,6 +25,7 @@ return static function (ContainerConfigurator $container) {
     $services->load('xorik\\YtUpload\\Service\\', __DIR__ . '/src/Service');
     $services->load('xorik\\YtUpload\\Command\\', __DIR__ . '/src/Command')->public();
 
+    // Symfony components
     $services
         ->set(CacheItemPoolInterface::class, FilesystemAdapter::class)
         ->args([
@@ -43,6 +46,12 @@ return static function (ContainerConfigurator $container) {
         ])
     ;
 
+    $services
+        ->set(LockFactory::class)
+        ->args([inline_service(FlockStore::class)])
+    ;
+
+    // App classes
     $services
         ->set(YoutubeApi::class)
         ->args([

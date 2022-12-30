@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace xorik\YtUpload\Service;
 
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\LockInterface;
 use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Uid\Uuid;
 use xorik\YtUpload\Model\Video;
@@ -12,8 +14,12 @@ use xorik\YtUpload\Model\VideoRange;
 
 class QueueManager
 {
+    /** @var LockInterface[] */
+    private array $locks = [];
+
     public function __construct(
         readonly private Serializer $serializer,
+        readonly private LockFactory $lockFactory,
         readonly private string $queueDirectory,
     ) {
     }
@@ -48,8 +54,14 @@ class QueueManager
         return $list;
     }
 
-    public function get(Uuid $id): Video
+    public function getWithLock(Uuid $id): Video
     {
+        $lock = $this->lockFactory->createLock('video_' . $id, null);
+        $this->locks[(string) $id] = $lock; // Save locks to state, to prevent auto-releasing
+        if (!$lock->acquire()) {
+            throw new \RuntimeException(sprintf('Video %s is taken by another process', $id));
+        }
+
         $path = sprintf('%s/%s.json', $this->queueDirectory, $id);
 
         if (!file_exists($path)) {
@@ -65,5 +77,14 @@ class QueueManager
 
         $data = $this->serializer->serialize($video, 'json');
         file_put_contents($path, $data);
+    }
+
+    public function saveAndUnlock(Video $video): void
+    {
+        $this->save($video);
+
+        $id = (string) $video->id;
+        $this->locks[$id]->release();
+        unset($this->locks[$id]);
     }
 }

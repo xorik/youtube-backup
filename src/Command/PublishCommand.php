@@ -30,7 +30,7 @@ class PublishCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $video = $this->queueManager->get(Uuid::fromString($input->getArgument('id')));
+        $video = $this->queueManager->getWithLock(Uuid::fromString($input->getArgument('id')));
 
         if ($video->state !== VideoState::UPLOADED) {
             throw new \RuntimeException(sprintf('Incorrect status for video %s: %s', $video->id, $video->state->value));
@@ -41,6 +41,7 @@ class PublishCommand extends Command
             $token = $this->tokenStorage->getToken();
             $details = $this->youtubeApi->getProcessingDetails($token, $video->videoId);
 
+            // TODO: make it more clear
             $processingStatus = $details->getProcessingDetails()->getProcessingStatus();
             $hdProcessingFinished = $details->getSnippet()->getThumbnails()->getMaxres() !== null;
 
@@ -50,7 +51,7 @@ class PublishCommand extends Command
                     $this->youtubeApi->updatePrivacyStatus($token, $video->videoId, $privacyStatus);
                 }
 
-                $this->queueManager->save($video->publish());
+                $this->queueManager->saveAndUnlock($video->publish());
 
                 return Command::SUCCESS;
             }

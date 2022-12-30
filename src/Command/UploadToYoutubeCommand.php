@@ -31,15 +31,21 @@ class UploadToYoutubeCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $video = $this->queueManager->get(Uuid::fromString($input->getArgument('id')));
+        $video = $this->queueManager->getWithLock(Uuid::fromString($input->getArgument('id')));
 
-        if ($video->state !== VideoState::DOWNLOADED) {
+        if (!\in_array($video->state, [VideoState::DOWNLOADED, VideoState::UPLOADING], true)) {
             throw new \RuntimeException(sprintf('Incorrect status for video %s: %s', $video->id, $video->state->value));
         }
 
         $token = $this->tokenStorage->getToken();
 
-        $request = $this->youtubeApi->insertVideo($token, $video->videoDetails);
+        if ($video->state === VideoState::DOWNLOADED) {
+            $request = $this->youtubeApi->insertVideo($token, $video->videoDetails);
+        } else {
+            // Downloading is started, but was interrupted
+            $request = $video->uploadState->request;
+            $resumeUrl = $video->uploadState->resumeUrl;
+        }
 
         $callback = function (int $progress, int $size, string $resumeUrl) use ($video, $request): void {
             $video = $video->uploading(new UploadState($request, $resumeUrl));
@@ -51,11 +57,11 @@ class UploadToYoutubeCommand extends Command
             $video->downloadedPath,
             $request,
             $callback,
-//            $resumeUrl ?? null,
+            $resumeUrl ?? null,
         );
 
         unlink($video->downloadedPath);
-        $this->queueManager->save($video->uploaded($videoId));
+        $this->queueManager->saveAndUnlock($video->uploaded($videoId));
 
         return Command::SUCCESS;
     }
