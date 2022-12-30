@@ -71,4 +71,18 @@ class Video
             $videoId,
         );
     }
+
+    public function publish(): self
+    {
+        return new self(
+            $this->id,
+            $this->sourceUrl,
+            $this->videoDetails,
+            $this->range,
+            VideoState::PUBLISHED,
+            null,
+            null,
+            $this->videoId,
+        );
+    }
 }

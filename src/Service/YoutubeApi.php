@@ -29,7 +29,7 @@ class YoutubeApi
             'client_id' => $clientId,
             'client_secret' => $clientSecret,
             'redirect_uri' => $redirectUrl,
-            'scopes' => [YouTube::YOUTUBE_UPLOAD],
+            'scopes' => [YouTube::YOUTUBE],
             'access_type' => 'offline',
         ]);
     }
@@ -124,5 +124,34 @@ class YoutubeApi
         fclose($handle);
 
         return $status->getId();
+    }
+
+    public function getProcessingDetails(array $token, string $videoId): Video
+    {
+        $this->client->setAccessToken($token);
+
+        $youtube = new YouTube($this->client);
+        $videos = $youtube->videos->listVideos('processingDetails,snippet,status', ['id' => $videoId])->getItems();
+        if (\count($videos) === 0) {
+            throw new \RuntimeException('Video is not found: ' . $videoId);
+        }
+
+        return $videos[0];
+    }
+
+    public function updatePrivacyStatus(array $token, string $videoId, PrivacyStatus $privacyStatus): void
+    {
+        $this->client->setAccessToken($token);
+
+        $youtube = new YouTube($this->client);
+
+        $video = new Video();
+        $video->setId($videoId);
+
+        $videoStatus = new VideoStatus();
+        $videoStatus->setPrivacyStatus($privacyStatus->value);
+        $video->setStatus($videoStatus);
+
+        $youtube->videos->update('status', $video);
     }
 }
