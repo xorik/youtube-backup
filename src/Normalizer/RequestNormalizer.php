@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace xorik\YtUpload\Normalizer;
 
 use GuzzleHttp\Psr7\Request;
+use Psr\Http\Message\RequestInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
@@ -35,11 +36,11 @@ class RequestNormalizer implements NormalizerInterface, DenormalizerInterface
 
     public function supportsNormalization($data, $format = null): bool
     {
-        return $data instanceof Request;
+        return $data instanceof RequestInterface;
     }
 
     public function supportsDenormalization($data, $type, $format = null): bool
     {
-        return $type === Request::class;
+        return $type === RequestInterface::class;
     }
 }

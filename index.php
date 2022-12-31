@@ -9,6 +9,7 @@ use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\PhpFileLoader;
 use Symfony\Component\Dotenv\Dotenv;
+use xorik\YtUpload\Command\PrepareVideoCommand;
 use xorik\YtUpload\Command\PublishCommand;
 use xorik\YtUpload\Command\RunCommand;
 use xorik\YtUpload\Command\UploadToYoutubeCommand;
@@ -38,12 +39,16 @@ try {
         'yt:auth' => YoutubeAuthCommand::class,
         'yt:queue' => YoutubeQueueCommand::class,
         'yt:download' => VideoDownloadCommand::class,
+        'yt:prepare' => PrepareVideoCommand::class,
         'yt:publish' => PublishCommand::class,
         'yt:run' => RunCommand::class,
     ]);
 
     $application->setCommandLoader($commandLoader);
-    $application->run();
 } catch (\Throwable $e) {
     $application->renderThrowable($e, new ConsoleOutput());
+    exit(1);
 }
+
+$code = $application->run();
+exit($code);

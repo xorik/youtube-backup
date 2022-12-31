@@ -32,7 +32,7 @@ class PublishCommand extends Command
     {
         $video = $this->queueManager->getWithLock(Uuid::fromString($input->getArgument('id')));
 
-        if ($video->state !== VideoState::UPLOADED) {
+        if ($video->state !== VideoState::PREPARED) {
             throw new \RuntimeException(sprintf('Incorrect status for video %s: %s', $video->id, $video->state->value));
         }
 

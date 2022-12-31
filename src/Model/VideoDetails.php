@@ -12,6 +12,9 @@ class VideoDetails
         readonly public array $tags,
         readonly public YoutubeCategory $category,
         readonly public PrivacyStatus $privacyStatus,
+        readonly public bool $youtubeLicense,
+        readonly public ?string $thumbnailPath,
+        readonly public ?string $playlistId,
     ) {
     }
 }

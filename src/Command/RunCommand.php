@@ -42,14 +42,13 @@ class RunCommand extends Command
             $id = (string) $video->id;
 
             // Resume started processes
-            if (\in_array($video->state, [VideoState::DOWNLOADING, VideoState::UPLOADING, VideoState::UPLOADED], true)) {
+            if (\in_array($video->state, [VideoState::DOWNLOADING, VideoState::UPLOADING], true)) {
                 $command = match ($video->state) {
                     VideoState::DOWNLOADING => 'yt:download',
                     VideoState::UPLOADING => 'yt:upload',
-                    VideoState::UPLOADED => 'yt:publish',
                 };
 
-                $this->io->info(sprintf('Resuming process % for video "%s"', $command, $video->videoDetails->title));
+                $this->io->info(sprintf('Resuming process %s for video "%s"', $command, $video->videoDetails->title));
                 $this->startProcess($video, $command);
                 continue;
             }
@@ -91,7 +90,8 @@ class RunCommand extends Command
             $command = match ($video->state) {
                 VideoState::QUEUED => 'yt:download',
                 VideoState::DOWNLOADED => 'yt:upload',
-                VideoState::UPLOADED => 'yt:publish',
+                VideoState::UPLOADED => 'yt:prepare',
+                VideoState::PREPARED => 'yt:publish',
                 default => throw new \LogicException('Unexpected state: ' . $video->state->value),
             };
 

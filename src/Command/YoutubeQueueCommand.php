@@ -64,7 +64,11 @@ class YoutubeQueueCommand extends Command
         $privacy = $io->choice('Privacy', PrivacyStatus::values(), $oldDetails?->privacyStatus->value);
         $privacy = PrivacyStatus::from($privacy);
 
-        $details = new VideoDetails($title, $description, $tags, $category, $privacy);
+        $youtubeLicense = $io->confirm('Use Youtube license (y) or creative commons (n)', $oldDetails?->youtubeLicense ?? true);
+        $thumbnailPath = $this->askThumbnailPath($io, $oldDetails?->thumbnailPath);
+        $playlistId = $io->ask('Playlist ID (leave empty if not needed)', $oldDetails?->playlistId, fn (string $id) => !empty($id) ? $id : null);
+
+        $details = new VideoDetails($title, $description, $tags, $category, $privacy, $youtubeLicense, $thumbnailPath, $playlistId);
         $this->cache->save($cacheItem->set($details));
 
         $this->queueManager->addToQueue($sourceUrl, $details, $range);
@@ -82,5 +86,20 @@ class YoutubeQueueCommand extends Command
         $end = $io->ask('End time (H:MM:SS)', null, $timeValidator);
 
         return new VideoRange($start, $end);
+    }
+
+    private function askThumbnailPath(SymfonyStyle $io, ?string $oldValue): ?string
+    {
+        return $io->ask('Thumbnail path (leave empty for automatic)', $oldValue, function (string $path) {
+            if ($path === '') {
+                return null;
+            }
+
+            if (!file_exists($path)) {
+                throw new \RuntimeException('File is not found');
+            }
+
+            return $path;
+        });
     }
 }

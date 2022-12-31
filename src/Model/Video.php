@@ -72,6 +72,20 @@ class Video
         );
     }
 
+    public function prepared()
+    {
+        return new self(
+            $this->id,
+            $this->sourceUrl,
+            $this->videoDetails,
+            $this->range,
+            VideoState::PREPARED,
+            null,
+            null,
+            $this->videoId,
+        );
+    }
+
     public function publish(): self
     {
         return new self(
