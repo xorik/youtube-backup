@@ -47,11 +47,21 @@ class QueueManager
             }
 
             $data = file_get_contents($this->queueDirectory . '/' . $file);
-            $id = str_replace('.json', '', $file);
             $list[] = $this->serializer->deserialize($data, Video::class, 'json');
         }
 
         return $list;
+    }
+
+    public function get(Uuid $id): Video
+    {
+        $path = sprintf('%s/%s.json', $this->queueDirectory, $id);
+
+        if (!file_exists($path)) {
+            throw new \RuntimeException('File does not exist: ' . $path);
+        }
+
+        return $this->serializer->deserialize(file_get_contents($path), Video::class, 'json');
     }
 
     public function getWithLock(Uuid $id): Video
@@ -62,13 +72,7 @@ class QueueManager
             throw new \RuntimeException(sprintf('Video %s is taken by another process', $id));
         }
 
-        $path = sprintf('%s/%s.json', $this->queueDirectory, $id);
-
-        if (!file_exists($path)) {
-            throw new \RuntimeException('File does not exist: ' . $path);
-        }
-
-        return $this->serializer->deserialize(file_get_contents($path), Video::class, 'json');
+        return $this->get($id);
     }
 
     public function save(Video $video): void
