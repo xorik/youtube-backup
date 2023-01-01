@@ -18,8 +18,16 @@ use xorik\YtUpload\Service\QueueManager;
 #[AsCommand(name: 'yt:run')]
 class RunCommand extends Command
 {
+    private const MIN_FREE_DISK_SPACE = 30 * 1024 * 1024 * 1024; // 30 GB
+    private const MAX_DOWNLOADED_VIDEOS = 4;
+
     /** @var Process[][] */
-    private array $processes = [];
+    private array $processes = [
+        'queued' => [],
+        'downloaded' => [],
+        'uploaded' => [],
+        'prepared' => [],
+    ];
 
     /** @var Video[] */
     private array $pendingVideos = [];
@@ -39,21 +47,24 @@ class RunCommand extends Command
         $videos = $this->queueManager->list();
 
         foreach ($videos as $video) {
-            $id = (string) $video->id;
-
-            // Resume started processes
-            if (\in_array($video->state, [VideoState::DOWNLOADING, VideoState::UPLOADING], true)) {
-                $command = match ($video->state) {
-                    VideoState::DOWNLOADING => 'yt:download',
-                    VideoState::UPLOADING => 'yt:upload',
-                };
-
-                $this->io->info(sprintf('Resuming process %s for video "%s"', $command, $video->videoDetails->title));
-                $this->startProcess($video, $command);
+            if (!\in_array($video->state, [VideoState::DOWNLOADING, VideoState::UPLOADING], true)) {
+                $this->pendingVideos[(string) $video->id] = $video;
                 continue;
             }
 
-            $this->pendingVideos[$id] = $video;
+            // Resume started processes
+            $command = match ($video->state) {
+                VideoState::DOWNLOADING => 'yt:download',
+                VideoState::UPLOADING => 'yt:upload',
+            };
+
+            $state = match ($video->state) {
+                VideoState::DOWNLOADING => VideoState::QUEUED,
+                VideoState::UPLOADING => VideoState::DOWNLOADED,
+            };
+
+            $this->io->info(sprintf('Resuming process %s for video "%s"', $command, $video->videoDetails->title));
+            $this->startProcess($video->id, $state, $command);
         }
 
         while (true) {
@@ -77,7 +88,8 @@ class RunCommand extends Command
 
         // Check if any pending process can be started
         foreach ($this->pendingVideos as $id => $video) {
-            if (!$this->canStartPendingVideo($video->state)) {
+            $canStartPendingVideo = $this->canStartPendingVideo($video->state);
+            if (!$canStartPendingVideo) {
                 continue;
             }
 
@@ -96,7 +108,7 @@ class RunCommand extends Command
             };
 
             $this->io->info(sprintf('Starting process %s for video "%s"', $command, $video->videoDetails->title));
-            $this->startProcess($video, $command);
+            $this->startProcess($video->id, $video->state, $command);
 
             // Remove from pending list
             unset($this->pendingVideos[$id]);
@@ -127,16 +139,59 @@ class RunCommand extends Command
 
     private function canStartPendingVideo(VideoState $state): bool
     {
+        if ($state === VideoState::QUEUED) {
+            if (\count($this->processes[VideoState::QUEUED->value]) > 0) {
+                return false;
+            }
+
+            $downloadedVideosCount = $this->countDownloadedVideos();
+            if ($downloadedVideosCount >= self::MAX_DOWNLOADED_VIDEOS) {
+                return false;
+            }
+
+            return $downloadedVideosCount === 0
+                || disk_free_space(__DIR__) > self::MIN_FREE_DISK_SPACE;
+        }
+
+        // Make sure only one process is uploading
+        if ($state === VideoState::DOWNLOADED) {
+            return \count($this->processes[VideoState::DOWNLOADED->value]) === 0;
+        }
+
+        // Upload thumbnail/change playlist only by one at the time
+        if ($state === VideoState::UPLOADED) {
+            return \count($this->processes[VideoState::UPLOADED->value]) === 0;
+        }
+
+        // Max 2 publish processes, to save API quote
+        if ($state === VideoState::PREPARED) {
+            return \count($this->processes[VideoState::PREPARED->value]) < 2;
+        }
+
         return true;
     }
 
-    private function startProcess(Video $video, string $command): void
+    private function startProcess(Uuid $id, VideoState $state, string $command): void
     {
-        $id = (string) $video->id;
         $process = new Process(['php', 'index.php', $command, $id]);
         $process->setTimeout(null);
-        $process->start();
 
-        $this->processes[$video->state->value][$id] = $process;
+        $this->processes[$state->value][(string) $id] = $process;
+    }
+
+    // TODO: store in a variable, and update when start/finish a process
+    private function countDownloadedVideos(): int
+    {
+        // Check current downloading and uploading tasks
+        $count = \count($this->processes[VideoState::QUEUED->value]) + \count($this->processes[VideoState::DOWNLOADED->value]);
+
+        // Plus pending downloaded videos
+        foreach ($this->pendingVideos as $video) {
+            if ($video->state === VideoState::DOWNLOADED) {
+                ++$count;
+            }
+        }
+
+        return $count;
     }
 }
