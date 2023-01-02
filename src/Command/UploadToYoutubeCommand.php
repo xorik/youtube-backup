@@ -12,6 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Uid\Uuid;
 use xorik\YtUpload\Model\UploadState;
 use xorik\YtUpload\Model\VideoState;
+use xorik\YtUpload\Service\ProgressRepository;
 use xorik\YtUpload\Service\QueueManager;
 use xorik\YtUpload\Service\TokenStorage;
 use xorik\YtUpload\Service\YoutubeApi;
@@ -20,9 +21,10 @@ use xorik\YtUpload\Service\YoutubeApi;
 class UploadToYoutubeCommand extends Command
 {
     public function __construct(
-        private YoutubeApi $youtubeApi,
-        private TokenStorage $tokenStorage,
-        private QueueManager $queueManager,
+        readonly private YoutubeApi $youtubeApi,
+        readonly private TokenStorage $tokenStorage,
+        readonly private QueueManager $queueManager,
+        readonly private ProgressRepository $progressRepository,
     ) {
         parent::__construct();
 
@@ -47,9 +49,16 @@ class UploadToYoutubeCommand extends Command
             $resumeUrl = $video->uploadState->resumeUrl;
         }
 
-        $callback = function (int $progress, int $size, string $resumeUrl) use ($video, $request): void {
-            $video = $video->uploading(new UploadState($request, $resumeUrl));
-            $this->queueManager->save($video);
+        $oldResumeUrl = null;
+
+        $callback = function (int $progress, int $size, string $resumeUrl) use ($video, $request, &$oldResumeUrl): void {
+            $this->progressRepository->setProgress($video->id, $progress / $size * 100.0);
+
+            if ($resumeUrl !== $oldResumeUrl) {
+                $video = $video->uploading(new UploadState($request, $resumeUrl));
+                $this->queueManager->save($video);
+                $oldResumeUrl = $resumeUrl;
+            }
         };
 
         $videoId = $this->youtubeApi->uploadVideo(

@@ -8,12 +8,13 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Uid\Uuid;
 use xorik\YtUpload\Model\Video;
 use xorik\YtUpload\Model\VideoState;
+use xorik\YtUpload\Service\ProgressRepository;
 use xorik\YtUpload\Service\QueueManager;
+use xorik\YtUpload\Service\UI\CliRenderer;
 
 #[AsCommand(name: 'yt:run')]
 class RunCommand extends Command
@@ -32,19 +33,22 @@ class RunCommand extends Command
     /** @var Video[] */
     private array $pendingVideos = [];
 
-    private SymfonyStyle $io;
+    private CliRenderer $cliRenderer;
 
     public function __construct(
         readonly private QueueManager $queueManager,
+        readonly private ProgressRepository $progressRepository,
     ) {
         parent::__construct();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $this->io = new SymfonyStyle($input, $output);
+        $this->cliRenderer = new CliRenderer($input, $output);
 
         $videos = $this->queueManager->list();
+
+        $this->cliRenderer->init($videos);
 
         foreach ($videos as $video) {
             if (!\in_array($video->state, [VideoState::DOWNLOADING, VideoState::UPLOADING], true)) {
@@ -63,7 +67,6 @@ class RunCommand extends Command
                 VideoState::UPLOADING => VideoState::DOWNLOADED,
             };
 
-            $this->io->info(sprintf('Resuming process %s for video "%s"', $command, $video->videoDetails->title));
             $this->startProcess($video->id, $state, $command);
         }
 
@@ -79,6 +82,18 @@ class RunCommand extends Command
         foreach ($this->processes as $state => $list) {
             foreach ($list as $id => $process) {
                 if ($process->isRunning()) {
+                    if ($state === VideoState::QUEUED->value || $state === VideoState::DOWNLOADED->value) {
+                        $videoId = Uuid::fromString($id);
+                        $progress = $this->progressRepository->getProgress($videoId);
+
+                        if ($progress !== null) {
+                            $this->cliRenderer->updateProgress(
+                                $videoId,
+                                $progress
+                            );
+                        }
+                    }
+
                     continue;
                 }
 
@@ -106,7 +121,6 @@ class RunCommand extends Command
                 default => throw new \LogicException('Unexpected state: ' . $video->state->value),
             };
 
-            $this->io->info(sprintf('Starting process %s for video "%s"', $command, $video->videoDetails->title));
             $this->startProcess($video->id, $video->state, $command);
 
             // Remove from pending list
@@ -121,16 +135,14 @@ class RunCommand extends Command
 
         // TODO: try to recover
         if ($process->getExitCode() > 0) {
-            $this->io->error([
-                'Process has finished with error',
-                'Name: ' . $video->videoDetails->title,
-                'State: ' . $state->name, $process->getOutput(),
-            ]);
+//            $this->io->error([
+//                'Process has finished with error',
+//                'Name: ' . $video->videoDetails->title,
+//                'State: ' . $state->name, $process->getOutput(),
+//            ]);
 
             return;
         }
-
-        $this->io->info(sprintf('Video "%s" has changed state from %s to %s', $video->videoDetails->title, $state->name, $video->state->name));
 
         // Move video to pending state
         $this->pendingVideos[(string) $id] = $video;
@@ -169,6 +181,7 @@ class RunCommand extends Command
     {
         $process = new Process(['php', 'index.php', $command, $id, '-vvv']);
         $process->setTimeout(null);
+        $process->start();
 
         $this->processes[$state->value][(string) $id] = $process;
     }

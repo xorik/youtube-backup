@@ -12,13 +12,19 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Uid\Uuid;
 use xorik\YtUpload\Model\VideoState;
+use xorik\YtUpload\Service\CliProgressParser;
+use xorik\YtUpload\Service\ProgressRepository;
 use xorik\YtUpload\Service\QueueManager;
 
 #[AsCommand(name: 'yt:download')]
 class VideoDownloadCommand extends Command
 {
+    private int $lastUpdate = 0;
+
     public function __construct(
         readonly private QueueManager $queueManager,
+        readonly private CliProgressParser $progressParser,
+        readonly private ProgressRepository $progressRepository,
         readonly private string $cachePath,
     ) {
         parent::__construct();
@@ -50,10 +56,31 @@ class VideoDownloadCommand extends Command
             $command[] = '*' . $video->range;
         }
 
+        // Prepare for progress calculation
+        $totalLength = 0;
+        if ($video->range !== null) {
+            $totalLength = $video->range->end->toSeconds() - $video->range->start->toSeconds();
+        }
+
         $process = new Process($command);
         $process->setTimeout(null);
-        $process->mustRun(function (string $type, string $buffer) use ($logPath) {
+        $process->mustRun(function (string $type, string $buffer) use ($video, $totalLength, $logPath) {
             file_put_contents($logPath, $buffer, \FILE_APPEND);
+
+            if (time() - $this->lastUpdate < 10) {
+                return;
+            }
+            $this->lastUpdate = time();
+
+            if (str_starts_with($buffer, '[download]')) {
+                $progress = $this->progressParser->getProgressForFullDownload($buffer);
+            } else {
+                $progress = $this->progressParser->getProgressForPartialDownload($totalLength, $buffer);
+            }
+
+            if ($progress !== null) {
+                $this->progressRepository->setProgress($video->id, $progress);
+            }
         });
 
         $this->queueManager->saveAndUnlock($video->downloaded());

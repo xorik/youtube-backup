@@ -12,4 +12,11 @@ class VideoTimestamp
             throw new \InvalidArgumentException('Invalid timestamp format');
         }
     }
+
+    public function toSeconds(): int
+    {
+        [$hour, $minute, $second] = explode(':', $this->timestamp);
+
+        return (int) $hour * 3600 + (int) $minute * 60 + (int) $second;
+    }
 }

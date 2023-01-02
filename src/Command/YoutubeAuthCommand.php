@@ -16,8 +16,8 @@ use xorik\YtUpload\Service\YoutubeApi;
 class YoutubeAuthCommand extends Command
 {
     public function __construct(
-        private YoutubeApi $youtubeApi,
-        private TokenStorage $tokenStorage,
+        readonly private YoutubeApi $youtubeApi,
+        readonly private TokenStorage $tokenStorage,
     ) {
         parent::__construct();
     }
