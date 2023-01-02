@@ -102,8 +102,7 @@ class RunCommand extends Command
             $command = match ($video->state) {
                 VideoState::QUEUED => 'yt:download',
                 VideoState::DOWNLOADED => 'yt:upload',
-                VideoState::UPLOADED => 'yt:prepare',
-                VideoState::PREPARED => 'yt:publish',
+                VideoState::UPLOADED => 'yt:publish',
                 default => throw new \LogicException('Unexpected state: ' . $video->state->value),
             };
 
@@ -158,14 +157,9 @@ class RunCommand extends Command
             return \count($this->processes[VideoState::DOWNLOADED->value]) === 0;
         }
 
-        // Upload thumbnail/change playlist only by one at the time
+        // Max 2 publish processes, to save API quota
         if ($state === VideoState::UPLOADED) {
-            return \count($this->processes[VideoState::UPLOADED->value]) === 0;
-        }
-
-        // Max 2 publish processes, to save API quote
-        if ($state === VideoState::PREPARED) {
-            return \count($this->processes[VideoState::PREPARED->value]) < 2;
+            return \count($this->processes[VideoState::UPLOADED->value]) < 2;
         }
 
         return true;
@@ -173,7 +167,7 @@ class RunCommand extends Command
 
     private function startProcess(Uuid $id, VideoState $state, string $command): void
     {
-        $process = new Process(['php', 'index.php', $command, $id]);
+        $process = new Process(['php', 'index.php', $command, $id, '-vvv']);
         $process->setTimeout(null);
 
         $this->processes[$state->value][(string) $id] = $process;

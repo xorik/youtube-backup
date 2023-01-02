@@ -11,7 +11,6 @@ enum VideoState: string
     case DOWNLOADED = 'downloaded';
     case UPLOADING = 'uploading';
     case UPLOADED = 'uploaded';
-    case PREPARED = 'prepared'; // Set thumbnail & playlist
     case PUBLISHED = 'published';
     case ERROR = 'error';
 }

@@ -128,7 +128,7 @@ class YoutubeApi
         return $status->getId();
     }
 
-    public function getProcessingDetails(array $token, string $videoId): Video
+    public function hasProcessingCompleted(array $token, string $videoId): bool
     {
         $this->client->setAccessToken($token);
         $youtube = new YouTube($this->client);
@@ -138,7 +138,14 @@ class YoutubeApi
             throw new \RuntimeException('Video is not found: ' . $videoId);
         }
 
-        return $videos[0];
+        $processingStatus = $videos[0]->getProcessingDetails()->getProcessingStatus();
+        $hdProcessingFinished = $videos[0]->getSnippet()->getThumbnails()->getMaxres() !== null;
+
+        if ($processingStatus === 'succeeded' && $hdProcessingFinished) {
+            return true;
+        }
+
+        return false;
     }
 
     public function updatePrivacyStatus(array $token, string $videoId, PrivacyStatus $privacyStatus): void
