@@ -44,12 +44,9 @@ class CliRenderer
         ;
 
         foreach ($videos as $i => $video) {
-            $this->output->write($video->videoDetails->title);
-            $this->cursor->moveToColumn((int) ($this->terminalWidth / 2));
-            $this->writeState($video);
-            $this->output->writeln('');
-
             $this->positions[(string) $video->id] = $i;
+            $this->output->write($video->videoDetails->title);
+            $this->updateVideoState($video->id, $video->state, $video->videoId);
         }
     }
 
@@ -60,15 +57,40 @@ class CliRenderer
         $this->progressRenderer->progress($progress);
     }
 
-    private function writeState(Video $video): void
+    public function printError(string $output, string $command, string $title): void
     {
-        $text = match ($video->state) {
+        $this->cursor
+            ->clearScreen()
+            ->moveToPosition(0, 0)
+        ;
+
+        $this->output->writeln([
+            '<error>Process has finished with error</>',
+            'Name: ' . $title,
+            'Command: ' . $command,
+            $output,
+        ]);
+    }
+
+    public function updateVideoState(Uuid $id, VideoState $state, ?string $videoId = null): void
+    {
+        $this->cursor
+            ->moveToPosition((int) ($this->terminalWidth / 2), $this->positions[(string) $id])
+            ->clearLineAfter()
+        ;
+        $this->writeState($state, $videoId);
+        $this->output->writeln('');
+    }
+
+    private function writeState(VideoState $state, ?string $videoId): void
+    {
+        $text = match ($state) {
             VideoState::QUEUED => '<fg=gray;options=bold>QUEUE</> <fg=gray>Queued video</>',
             VideoState::DOWNLOADING => '<fg=blue;options=bold>DOWN</>',
             VideoState::DOWNLOADED => '<fg=magenta;options=bold>WAIT</>  <fg=magenta>Waiting for uploading</>',
             VideoState::UPLOADING => '<fg=yellow;options=bold>UPLD</>',
             VideoState::UPLOADED => '<fg=green;options=bold>PROC</>  <fg=green>Processing on YouTube</>',
-            VideoState::PUBLISHED => '<fg=green;options=bold>DONE</>  <fg=green>Published:</> https://youtu.be/' . $video->videoId,
+            VideoState::PUBLISHED => '<fg=green;options=bold>DONE</>  <fg=green>Published:</> https://youtu.be/' . $videoId,
             VideoState::ERROR => '<fg=red;options=bold>ERR</>',
         };
 

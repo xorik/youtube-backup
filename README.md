@@ -1,4 +1,4 @@
-# YouTube backup CLI tool
+# Backup to YouTube CLI tool
 
 ![Screenshot](example.png)
 
@@ -9,6 +9,7 @@
 - Automatically resume upload and download, if interrupted
 - You can set thumbnail, playlist, status (public,private,unlisted), tags, etc
 - Free disk space checking, before downloading
+- Automatic publishing when HD processing is finished
 
 ### Requirements
 - PHP 8+

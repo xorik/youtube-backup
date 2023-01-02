@@ -103,14 +103,14 @@ class RunCommand extends Command
 
         // Check if any pending process can be started
         foreach ($this->pendingVideos as $id => $video) {
-            $canStartPendingVideo = $this->canStartPendingVideo($video->state);
-            if (!$canStartPendingVideo) {
-                continue;
-            }
-
             // All steps are finished
             if ($video->state === VideoState::PUBLISHED) {
                 unset($this->pendingVideos[$id]);
+                continue;
+            }
+
+            $canStartPendingVideo = $this->canStartPendingVideo($video->state);
+            if (!$canStartPendingVideo) {
                 continue;
             }
 
@@ -135,17 +135,14 @@ class RunCommand extends Command
 
         // TODO: try to recover
         if ($process->getExitCode() > 0) {
-//            $this->io->error([
-//                'Process has finished with error',
-//                'Name: ' . $video->videoDetails->title,
-//                'State: ' . $state->name, $process->getOutput(),
-//            ]);
+            $this->cliRenderer->printError($process->getErrorOutput(), $process->getCommandLine(), $video->videoDetails->title);
 
-            return;
+            exit(1);
         }
 
         // Move video to pending state
         $this->pendingVideos[(string) $id] = $video;
+        $this->cliRenderer->updateVideoState($video->id, $video->state, $video->videoId);
     }
 
     private function canStartPendingVideo(VideoState $state): bool
@@ -184,6 +181,15 @@ class RunCommand extends Command
         $process->start();
 
         $this->processes[$state->value][(string) $id] = $process;
+
+        // Switch state in UI
+        if ($state === VideoState::QUEUED) {
+            $this->cliRenderer->updateVideoState($id, VideoState::DOWNLOADING);
+            $this->cliRenderer->updateProgress($id, 0);
+        } elseif ($state === VideoState::DOWNLOADED) {
+            $this->cliRenderer->updateVideoState($id, VideoState::UPLOADING);
+            $this->cliRenderer->updateProgress($id, 0);
+        }
     }
 
     // TODO: store in a variable, and update when start/finish a process

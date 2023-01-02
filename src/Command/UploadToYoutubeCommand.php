@@ -42,6 +42,7 @@ class UploadToYoutubeCommand extends Command
         $token = $this->tokenStorage->getToken();
 
         if ($video->state === VideoState::DOWNLOADED) {
+            $this->progressRepository->setProgress($video->id, 0);
             $request = $this->youtubeApi->insertVideo($token, $video->videoDetails);
         } else {
             // Downloading is started, but was interrupted
